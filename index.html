@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>出席管理</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root {
+  --bg:#f7f6f3; --sur:#fff; --bd:rgba(0,0,0,0.10); --bds:rgba(0,0,0,0.20);
+  --tx:#1a1a18; --mu:#6b6b68; --hi:#9b9b98;
+  --green:#3B6D11; --gbg:#EAF3DE;
+  --amber:#854F0B; --abg:#FAEEDA;
+  --red:#A32D2D;   --rbg:#FCEBEB;
+  --gray:#5F5E5A;  --grbg:#F1EFE8;
+  --blue:#185FA5;  --bbg:#E6F1FB;
+  --purple:#533AB7;--pbg:#EEEDFE;
+  --teal:#0F6E56;  --tbg:#E1F5EE;
+  --r:12px; --rs:8px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1a1a18; --sur:#242422; --bd:rgba(255,255,255,0.10); --bds:rgba(255,255,255,0.20);
+  --tx:#f0ede8; --mu:#9b9b98; --hi:#6b6b68;
+  --gbg:#173404; --abg:#412402; --rbg:#501313; --grbg:#2C2C2A;
+  --bbg:#042C53; --pbg:#26215C; --tbg:#04342C;
+}}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,'Hiragino Sans','Yu Gothic',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;}
+.page{display:none;min-height:100vh;flex-direction:column;}
+.page.active{display:flex;}
+.hdr{background:var(--sur);border-bottom:0.5px solid var(--bd);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:10;}
+.hdr-t{font-size:15px;font-weight:600;}
+.hdr-s{font-size:12px;color:var(--mu);margin-top:2px;}
+.role{font-size:11px;font-weight:600;padding:4px 10px;border-radius:99px;flex-shrink:0;}
+.role.t{background:var(--bbg);color:var(--blue);}
+.role.s{background:var(--gbg);color:var(--green);}
+.tabs{display:flex;background:var(--sur);border-bottom:0.5px solid var(--bd);position:sticky;top:57px;z-index:9;}
+.tab{flex:1;padding:12px 0;font-size:14px;font-weight:500;text-align:center;cursor:pointer;color:var(--mu);border:none;background:none;border-bottom:2px solid transparent;font-family:inherit;transition:color .15s,border-color .15s;}
+.tab.active{color:var(--tx);border-bottom-color:var(--tx);}
+.main{flex:1;padding:18px 16px;max-width:640px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:14px;}
+.card{background:var(--sur);border:0.5px solid var(--bd);border-radius:var(--r);padding:16px 18px;}
+.clabel{font-size:11px;font-weight:600;color:var(--hi);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;}
+input[type=text],textarea{width:100%;padding:0 14px;border:0.5px solid var(--bds);border-radius:var(--rs);background:var(--bg);color:var(--tx);font-size:15px;outline:none;font-family:inherit;transition:border-color .15s;}
+input[type=text]{height:44px;}
+textarea{padding:10px 14px;resize:vertical;}
+input[type=text]:focus,textarea:focus{border-color:var(--tx);}
+.igroup{display:flex;flex-direction:column;gap:8px;}
+.ilabel{font-size:13px;color:var(--mu);}
+.irow{display:flex;gap:8px;}
+.btn{height:44px;padding:0 18px;border-radius:var(--rs);border:0.5px solid var(--bds);background:var(--sur);color:var(--tx);font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;font-family:inherit;transition:opacity .12s,background .12s;}
+.btn:hover{background:var(--bg);}
+.btn:active{opacity:.75;}
+.btn.pri{background:var(--tx);color:var(--sur);border-color:var(--tx);}
+.btn.pri:hover{opacity:.85;background:var(--tx);}
+.btn.dng{color:var(--red);border-color:rgba(163,45,45,.35);}
+.btn.dng:hover{background:var(--rbg);}
+.btn.full{width:100%;}
+.btn.lg{height:52px;font-size:16px;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.dot.on{background:#639922;animation:pulse 2s infinite;}
+.dot.off{background:var(--hi);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.timer-bg{height:5px;background:var(--grbg);border-radius:3px;overflow:hidden;margin:10px 0 5px;}
+.timer-fill{height:100%;border-radius:3px;transition:width 1s linear,background 1s;}
+.timer-lbl{font-size:13px;color:var(--mu);text-align:center;}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+.stat{background:var(--bg);border-radius:var(--rs);padding:12px 6px;text-align:center;}
+.stat-n{font-size:26px;font-weight:600;}
+.stat-l{font-size:11px;color:var(--mu);margin-top:2px;}
+.slist{display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto;}
+.sitem{border:0.5px solid var(--bd);border-radius:var(--rs);padding:10px 12px;display:flex;flex-direction:column;gap:6px;}
+.sitem-top{display:flex;align-items:center;gap:8px;}
+.sid{font-size:12px;color:var(--hi);font-family:monospace;min-width:60px;}
+.sname{flex:1;font-size:14px;font-weight:500;}
+.stime{font-size:11px;color:var(--hi);}
+.sbadge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;flex-shrink:0;}
+.sbadge.present{background:var(--gbg);color:var(--green);}
+.sbadge.absent{background:var(--grbg);color:var(--gray);}
+.sitem-acts{display:flex;gap:6px;padding-left:68px;}
+.abtn{height:28px;padding:0 12px;border-radius:99px;border:0.5px solid var(--bds);background:var(--sur);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px;transition:background .12s;}
+.abtn.pres{border-color:rgba(83,58,183,.4);color:var(--purple);}
+.abtn.pres:hover,.abtn.pres.on{background:var(--pbg);border-color:var(--purple);}
+.abtn.comm{border-color:rgba(15,110,86,.4);color:var(--teal);}
+.abtn.comm:hover,.abtn.comm.on{background:var(--tbg);border-color:var(--teal);}
+.empty{text-align:center;color:var(--hi);font-size:14px;padding:24px 0;}
+.qr-hero{text-align:center;padding:12px 0 8px;}
+.qr-frame{display:inline-block;background:#fff;padding:16px;border-radius:var(--rs);border:0.5px solid var(--bd);margin-bottom:10px;}
+.kw-show{font-size:38px;font-weight:700;letter-spacing:.12em;font-family:monospace;color:var(--tx);margin:6px 0 2px;}
+.kw-meta{font-size:12px;color:var(--mu);}
+.kwbadge{display:inline-block;padding:3px 12px;border-radius:99px;font-size:12px;font-weight:600;margin-top:6px;}
+.kwbadge.ok{background:var(--gbg);color:var(--green);}
+.kwbadge.warn{background:var(--abg);color:var(--amber);}
+.kwbadge.end{background:var(--grbg);color:var(--gray);}
+.hero{text-align:center;padding:20px 16px 14px;}
+.hero-class{font-size:22px;font-weight:700;margin-bottom:8px;}
+.hero-status{display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;}
+.big-input{font-size:20px!important;height:52px!important;text-align:center;letter-spacing:.06em;font-family:monospace!important;}
+.notice{font-size:13px;color:var(--mu);background:var(--bg);border-radius:var(--rs);padding:10px 14px;line-height:1.6;margin-top:10px;}
+.result{text-align:center;padding:40px 20px;}
+.result-icon{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 16px;}
+.result-icon.ok{background:var(--gbg);}
+.result-icon.ng{background:var(--rbg);}
+.result-title{font-size:22px;font-weight:700;margin-bottom:8px;}
+.result-sub{font-size:14px;color:var(--mu);line-height:1.7;white-space:pre-line;}
+.sync-badge{font-size:11px;padding:2px 8px;border-radius:99px;margin-left:8px;}
+.sync-badge.ok{background:var(--gbg);color:var(--green);}
+.sync-badge.err{background:var(--rbg);color:var(--red);}
+.divider{height:0.5px;background:var(--bd);margin:12px 0;}
+.row-sb{display:flex;align-items:center;justify-content:space-between;}
+.mt8{margin-top:8px;}
+.mt12{margin-top:12px;}
+</style>
+</head>
+<body>
+
+<!-- ===== TEACHER PAGE ===== -->
+<div class="page active" id="page-t">
+  <div class="hdr">
+    <div>
+      <div class="hdr-t" id="t-hdr-title">出席管理</div>
+      <div class="hdr-s" id="t-date"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="sync-badge" id="t-sync-badge"></span>
+      <span class="role t">先生</span>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="tTab('session')" id="ttab-session">授業管理</button>
+    <button class="tab" onclick="tTab('students')" id="ttab-students">受講者</button>
+  </div>
+
+  <div class="main" id="t-session-tab">
+    <!-- セットアップ -->
+    <div class="card" id="t-setup-card">
+      <div class="clabel">授業設定</div>
+      <div class="igroup">
+        <span class="ilabel">授業名</span>
+        <input type="text" id="t-class-input" placeholder="例：情報工学概論" />
+        <span class="ilabel">出席キーワード（口頭で生徒に伝える）</span>
+        <div class="irow">
+          <input type="text" id="t-kw-input" placeholder="例：spring2025" />
+          <button class="btn pri" id="t-start-btn" onclick="startSession()">開始</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- セッション中 -->
+    <div class="card" id="t-session-card" style="display:none">
+      <div class="row-sb" style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="dot on"></span>
+          <span style="font-size:14px;font-weight:500">受付中</span>
+        </div>
+        <button class="btn dng" style="height:34px;font-size:13px;padding:0 14px" onclick="stopSession()">受付終了</button>
+      </div>
+      <div class="timer-bg"><div class="timer-fill" id="t-timer-fill" style="width:100%;background:#639922"></div></div>
+      <div class="timer-lbl" id="t-timer-lbl">残り 10:00</div>
+      <div class="divider"></div>
+      <div class="qr-hero">
+        <div style="font-size:13px;color:var(--mu);margin-bottom:10px">このQRコードを生徒に見せてください</div>
+        <div class="qr-frame"><div id="t-qr-box"></div></div>
+        <div class="kwbadge ok" id="t-kw-badge" style="margin-top:8px">有効</div>
+        <div id="t-kw-display" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- 統計 -->
+    <div class="stats">
+      <div class="stat"><div class="stat-n" id="s-present" style="color:var(--green)">0</div><div class="stat-l">出席</div></div>
+      <div class="stat"><div class="stat-n" id="s-absent" style="color:var(--gray)">0</div><div class="stat-l">未回答</div></div>
+      <div class="stat"><div class="stat-n" id="s-pres" style="color:var(--purple)">0</div><div class="stat-l">発表</div></div>
+      <div class="stat"><div class="stat-n" id="s-comm" style="color:var(--teal)">0</div><div class="stat-l">発言</div></div>
+    </div>
+
+    <!-- 出席リスト -->
+    <div class="card">
+      <div class="row-sb" style="margin-bottom:10px">
+        <div class="clabel" style="margin:0">出席・活動記録</div>
+        <span style="font-size:11px;color:var(--hi)" id="t-last-sync"></span>
+      </div>
+      <div class="slist" id="t-slist">
+        <div class="empty">出席した生徒がここに表示されます</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 受講者タブ -->
+  <div class="main" id="t-students-tab" style="display:none">
+    <div class="card">
+      <div class="row-sb" style="margin-bottom:12px">
+        <div class="clabel" style="margin:0">登録受講者</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn" style="height:34px;font-size:12px;padding:0 12px" onclick="addStudent()">+ 追加</button>
+          <button class="btn" style="height:34px;font-size:12px;padding:0 12px" onclick="exportCSV()">CSV出力</button>
+        </div>
+      </div>
+      <div class="slist" id="t-slist-reg">
+        <div class="empty">受講者を追加してください</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="clabel">CSVで一括インポート</div>
+      <div style="font-size:13px;color:var(--mu);margin-bottom:8px">「学籍番号,氏名」の形式で1行ずつ入力してください</div>
+      <textarea id="t-csv-area" style="height:90px;font-size:13px" placeholder="s23001,山田太郎&#10;s23002,鈴木花子"></textarea>
+      <button class="btn full mt8" onclick="importCSV()">インポート</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STUDENT PAGE ===== -->
+<div class="page" id="page-s">
+  <div class="hdr">
+    <div><div class="hdr-t" id="s-hdr-title">出席登録</div></div>
+    <span class="role s">学生</span>
+  </div>
+  <div class="main">
+    <div class="card result" id="s-result" style="display:none">
+      <div class="result-icon" id="s-ri">✓</div>
+      <div class="result-title" id="s-rt"></div>
+      <div class="result-sub" id="s-rs"></div>
+    </div>
+    <div id="s-form">
+      <div class="card hero">
+        <div class="hero-class" id="s-class-name">—</div>
+        <div class="hero-status">
+          <span class="dot off" id="s-dot"></span>
+          <span id="s-status-text" style="color:var(--mu)">読み込み中...</span>
+        </div>
+        <div id="s-timer-wrap" style="display:none">
+          <div class="timer-bg"><div class="timer-fill" id="s-timer-fill" style="width:100%;background:#639922"></div></div>
+          <div class="timer-lbl" id="s-timer-lbl"></div>
+        </div>
+      </div>
+      <div class="card" id="s-submit-card" style="display:none">
+        <div class="clabel">出席を提出する</div>
+        <div class="igroup">
+          <span class="ilabel">学籍番号</span>
+          <input type="text" id="s-id" placeholder="例：s23001" autocapitalize="none" autocomplete="off" />
+          <span class="ilabel">氏名</span>
+          <input type="text" id="s-name" placeholder="例：山田太郎" />
+          <span class="ilabel">キーワード</span>
+          <input type="text" id="s-kw" class="big-input" placeholder="先生から聞いたキーワード" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" />
+          <button class="btn pri full lg mt8" id="s-submit-btn" onclick="submitAttendance()">出席を提出</button>
+        </div>
+        <div class="notice">先生から口頭で伝えられたキーワードを入力して提出してください。</div>
+      </div>
+      <div class="card" id="s-closed-card" style="display:none">
+        <div style="text-align:center;padding:24px 0;color:var(--mu);font-size:15px">現在、出席受付は行われていません</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── GAS エンドポイント ───
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzD3iZyFnb-65-mpS3bax2RETbSuEkQuOPFVux5qwwoGYA9b6u-jK2pSiUk97kbViKr/exec';
+
+// ─── ローカル状態（先生側UI用） ───
+let localStudents = [];   // 登録受講者リスト（localStorageに保存）
+let submissions   = [];   // GASから取得した提出データ
+let sessionInfo   = null; // GASから取得したセッション情報
+let mainTimer     = null;
+let pollTimer     = null;
+let qrTimer       = null;
+
+const LS_STUDENTS = 'attendance_students_v1';
+
+// ─── 起動 ───
+function init() {
+  const params = new URLSearchParams(location.search);
+  const mode = params.get('m');
+  if (mode === 's') {
+    showPage('s');
+    bootStudent(params);
+  } else if (mode === 'qr') {
+    showPage('qr');
+    bootStudentQR();
+  } else {
+    showPage('t');
+    bootTeacher();
+  }
+}
+
+function showPage(p) {
+  document.getElementById('page-t').classList.toggle('active', p==='t');
+  document.getElementById('page-s').classList.toggle('active', p==='s');
+  document.getElementById('page-qr').classList.toggle('active', p==='qr');
+}
+
+// ─── GAS通信ヘルパー ───
+async function gasGet(params) {
+  const url = GAS_URL + '?' + new URLSearchParams(params);
+  const res = await fetch(url);
+  return res.json();
+}
+
+async function gasPost(body) {
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+// ─── 先生：起動 ───
+function bootTeacher() {
+  document.getElementById('t-date').textContent =
+    new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+  loadLocalStudents();
+  renderRegisteredList();
+  // 既存セッション確認
+  checkExistingSession();
+}
+
+async function checkExistingSession() {
+  try {
+    const data = await gasGet({ action: 'getSession' });
+    if (data.active) {
+      sessionInfo = data;
+      const elapsed = Date.now() - data.sessionStart;
+      if (elapsed < data.sessionDuration) {
+        document.getElementById('t-class-input').value = data.className;
+        document.getElementById('t-kw-input').value    = data.keyword;
+        document.getElementById('t-hdr-title').textContent = data.className;
+        showSessionUI();
+        startMainTimer();
+        startPolling();
+        startQrTimer();
+        syncSubmissions();
+      }
+    }
+  } catch(e) { /* GAS未接続でも起動 */ }
+}
+
+function tTab(tab) {
+  ['session','students'].forEach(t => {
+    document.getElementById('t-'+t+'-tab').style.display = t===tab?'':'none';
+    document.getElementById('ttab-'+t).classList.toggle('active', t===tab);
+  });
+}
+
+// ─── 先生：セッション ───
+async function startSession() {
+  const cn = document.getElementById('t-class-input').value.trim();
+  const kw = document.getElementById('t-kw-input').value.trim();
+  if (!cn) { alert('授業名を入力してください'); return; }
+  if (!kw) { alert('キーワードを入力してください'); return; }
+
+  const btn = document.getElementById('t-start-btn');
+  btn.disabled = true; btn.textContent = '開始中...';
+
+  const now = Date.now();
+  try {
+    const res = await gasPost({
+      action: 'startSession',
+      className: cn, keyword: kw,
+      sessionStart: now, sessionDuration: 600000
+    });
+    if (!res.ok) throw new Error(res.error);
+  } catch(e) {
+    alert('GASへの接続に失敗しました: ' + e.message);
+    btn.disabled = false; btn.textContent = '開始';
+    return;
+  }
+
+  sessionInfo = { active:true, className:cn, keyword:kw, sessionStart:now, sessionDuration:600000 };
+  submissions = [];
+  document.getElementById('t-hdr-title').textContent = cn;
+  btn.disabled = false; btn.textContent = '開始';
+  showSessionUI();
+  startMainTimer();
+  startPolling();
+  startQrTimer();
+  setSyncBadge(true);
+}
+
+async function stopSession() {
+  if (!confirm('受付を終了しますか？')) return;
+  clearInterval(mainTimer);
+  clearInterval(pollTimer);
+  clearInterval(qrTimer);
+  try { await gasPost({ action: 'stopSession' }); } catch(e){}
+  sessionInfo = null;
+  submissions = [];
+  document.getElementById('t-session-card').style.display = 'none';
+  document.getElementById('t-setup-card').style.display   = '';
+  document.getElementById('t-kw-badge').className = 'kwbadge end';
+  document.getElementById('t-kw-badge').textContent = '終了';
+  renderSessionList();
+  updateStats();
+  setSyncBadge(false);
+}
+
+function showSessionUI() {
+  document.getElementById('t-setup-card').style.display   = 'none';
+  document.getElementById('t-session-card').style.display = '';
+  document.getElementById('t-kw-display').textContent = sessionInfo.keyword;
+  setTimeout(renderQR, 150);
+}
+
+// ─── QR ───
+function buildStudentURL() {
+  const base = location.origin + location.pathname;
+  const payload = {
+    cls: sessionInfo.className,
+    ts:  sessionInfo.sessionStart,
+    dur: sessionInfo.sessionDuration
+  };
+  const json = JSON.stringify(payload);
+  const b64  = btoa(unescape(encodeURIComponent(json)));
+  return base + '?m=s&d=' + encodeURIComponent(b64);
+}
+
+function renderQR() {
+  const box = document.getElementById('t-qr-box');
+  box.innerHTML = '';
+  let url;
+  try { url = buildStudentURL(); } catch(e) {
+    box.innerHTML = '<div style="color:red;padding:12px;font-size:12px">URL生成エラー:'+e.message+'</div>';
+    return;
+  }
+  if (typeof QRCode === 'undefined') {
+    box.innerHTML = '<div style="padding:16px;font-size:13px;color:#999">QR生成中...</div>';
+    setTimeout(renderQR, 600); return;
+  }
+  try {
+    new QRCode(box, { text:url, width:220, height:220, colorDark:'#000000', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M });
+  } catch(e) {
+    box.innerHTML = '<div style="color:red;padding:12px;font-size:12px">QRエラー:'+e.message+'</div>';
+  }
+}
+
+// ─── タイマー ───
+function startMainTimer() {
+  clearInterval(mainTimer);
+  tickTeacher(); mainTimer = setInterval(tickTeacher, 1000);
+}
+
+function tickTeacher() {
+  if (!sessionInfo) return;
+  const rem   = Math.max(0, sessionInfo.sessionDuration-(Date.now()-sessionInfo.sessionStart));
+  const pct   = rem/sessionInfo.sessionDuration*100;
+  const min   = Math.floor(rem/60000), sec = Math.floor(rem%60000/1000);
+  const color = rem>180000?'#639922':rem>60000?'#BA7517':'#A32D2D';
+  const fill  = document.getElementById('t-timer-fill');
+  if (fill) { fill.style.width=pct+'%'; fill.style.background=color; }
+  const lbl   = document.getElementById('t-timer-lbl');
+  if (lbl) lbl.textContent = `残り ${min}:${String(sec).padStart(2,'0')}`;
+  const badge = document.getElementById('t-kw-badge');
+  if (badge) {
+    if      (rem>180000) { badge.className='kwbadge ok';   badge.textContent='有効'; }
+    else if (rem>60000)  { badge.className='kwbadge warn'; badge.textContent='まもなく終了'; }
+    else if (rem>0)      { badge.className='kwbadge warn'; badge.textContent='残りわずか'; }
+    else                 { badge.className='kwbadge end';  badge.textContent='終了'; stopSession(); }
+  }
+}
+
+// ─── ポーリング（3秒ごとにGASから提出データ取得） ───
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(syncSubmissions, 3000);
+}
+
+function startQrTimer() {
+  clearInterval(qrTimer);
+  qrTimer = setInterval(() => {
+    if (sessionInfo) renderQR();
+  }, 2 * 60 * 1000); // 2分ごとに更新
+}
+
+async function syncSubmissions() {
+  try {
+    // セッション状態も同時に確認
+    const [subData, sesData] = await Promise.all([
+      gasGet({ action: 'getSubmissions' }),
+      gasGet({ action: 'getSession' })
+    ]);
+
+    // GAS側でセッションが終了していたら画面も終了状態にする
+    if (sessionInfo && sesData && !sesData.active) {
+      clearInterval(mainTimer);
+      clearInterval(pollTimer);
+      sessionInfo = null;
+      document.getElementById('t-session-card').style.display = 'none';
+      document.getElementById('t-setup-card').style.display   = '';
+    }
+
+    const newSubs = subData.submissions || [];
+    // ポーリングで上書きされても、ローカルで変更済みのフラグは引き継ぐ
+    newSubs.forEach(ns => {
+      const existing = submissions.find(s => s.studentId === ns.studentId);
+      if (existing) {
+        // GAS側にフラグが入っていればそちらを優先、なければローカルを維持
+        if (ns.presented) ns.presented = true;
+        else ns.presented = existing.presented;
+        if (ns.commented) ns.commented = true;
+        else ns.commented = existing.commented;
+      }
+    });
+    submissions = newSubs;
+    renderSessionList();
+    renderRegisteredList();
+    updateStats();
+    setSyncBadge(true);
+    const el = document.getElementById('t-last-sync');
+    if (el) el.textContent = '最終同期 ' + new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  } catch(e) {
+    setSyncBadge(false);
+  }
+}
+
+function setSyncBadge(ok) {
+  const b = document.getElementById('t-sync-badge');
+  if (!b) return;
+  if (ok) { b.className='sync-badge ok'; b.textContent='同期中'; }
+  else    { b.className='sync-badge err'; b.textContent='オフライン'; }
+}
+
+// ─── 発表・発言トグル ───
+async function toggleFlag(studentId, flag) {
+  const s = submissions.find(s=>s.studentId===studentId); if (!s) return;
+  s[flag] = !s[flag];
+  renderSessionList(); updateStats();
+  try {
+    const res = await gasPost({ action:'updateFlag', studentId: String(studentId), flag, value:s[flag] });
+    if (!res.ok) {
+      console.error('updateFlag failed:', res.error);
+      // 失敗してもローカルの状態は維持（次のポーリングで上書きされないよう保護）
+    }
+  } catch(e) {
+    console.error('updateFlag error:', e);
+  }
+}
+
+// ─── リスト描画 ───
+function renderSessionList() {
+  const el = document.getElementById('t-slist'); if (!el) return;
+  if (!submissions.length) { el.innerHTML='<div class="empty">出席した生徒がここに表示されます</div>'; return; }
+  el.innerHTML = submissions.map(s=>`
+    <div class="sitem">
+      <div class="sitem-top">
+        <span class="sid">${esc(s.studentId)}</span>
+        <span class="sname">${esc(s.name)}</span>
+        <span class="stime">${s.time||''}</span>
+        <span class="sbadge present">出席</span>
+      </div>
+      <div class="sitem-acts">
+        <button class="abtn pres ${s.presented?'on':''}" onclick="toggleFlag('${esc(s.studentId)}','presented')">発表${s.presented?' ✓':''}</button>
+        <button class="abtn comm ${s.commented?'on':''}" onclick="toggleFlag('${esc(s.studentId)}','commented')">発言${s.commented?' ✓':''}</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderRegisteredList() {
+  const el = document.getElementById('t-slist-reg'); if (!el) return;
+  if (!localStudents.length) { el.innerHTML='<div class="empty">受講者を追加してください</div>'; return; }
+  el.innerHTML = localStudents.map(s=>`
+    <div class="sitem">
+      <div class="sitem-top">
+        <span class="sid">${esc(s.id)}</span>
+        <span class="sname">${esc(s.name)}</span>
+        <span class="sbadge ${submissions.find(x=>x.studentId===s.id)?'present':'absent'}">${submissions.find(x=>x.studentId===s.id)?'出席':'未回答'}</span>
+      </div>
+    </div>`).join('');
+}
+
+function updateStats() {
+  const presentCount = submissions.length;
+  const regCount     = localStudents.length;
+  document.getElementById('s-present').textContent = presentCount;
+  document.getElementById('s-absent').textContent  = Math.max(0, regCount - presentCount);
+  document.getElementById('s-pres').textContent    = submissions.filter(s=>s.presented).length;
+  document.getElementById('s-comm').textContent    = submissions.filter(s=>s.commented).length;
+}
+
+// ─── 受講者管理 ───
+function loadLocalStudents() {
+  try { localStudents = JSON.parse(localStorage.getItem(LS_STUDENTS)||'[]'); } catch(e){ localStudents=[]; }
+}
+function saveLocalStudents() {
+  try { localStorage.setItem(LS_STUDENTS, JSON.stringify(localStudents)); } catch(e){}
+}
+
+function addStudent() {
+  const id = prompt('学籍番号（例：s23001）'); if (!id||!id.trim()) return;
+  const name = prompt('氏名'); if (!name||!name.trim()) return;
+  const sid = id.trim();
+  if (localStudents.find(s=>s.id===sid)) { alert('すでに登録済みです'); return; }
+  localStudents.push({id:sid, name:name.trim()});
+  saveLocalStudents(); renderRegisteredList(); updateStats();
+}
+
+function importCSV() {
+  const raw = document.getElementById('t-csv-area').value.trim(); if (!raw) return;
+  let count = 0;
+  raw.split('\n').forEach(line=>{
+    const p=line.split(','); if (p.length<2) return;
+    const id=p[0].trim(), name=p[1].trim(); if (!id||!name) return;
+    if (!localStudents.find(s=>s.id===id)) { localStudents.push({id,name}); count++; }
+  });
+  saveLocalStudents(); renderRegisteredList(); updateStats();
+  document.getElementById('t-csv-area').value='';
+  alert(count+'件インポートしました');
+}
+
+function exportCSV() {
+  const rows=[['学籍番号','氏名','出席','提出時刻','発表','発言']];
+  // 登録受講者ベースで出力
+  localStudents.forEach(s=>{
+    const sub = submissions.find(x=>x.studentId===s.id);
+    rows.push([s.id, s.name, sub?'出席':'欠席', sub?sub.time:'', sub&&sub.presented?'○':'', sub&&sub.commented?'○':'']);
+  });
+  // 未登録だが提出した生徒も追加
+  submissions.forEach(s=>{
+    if (!localStudents.find(x=>x.id===s.studentId)) {
+      rows.push([s.studentId, s.name, '出席', s.time, s.presented?'○':'', s.commented?'○':'']);
+    }
+  });
+  const date=new Date().toLocaleDateString('ja-JP').replace(/\//g,'-');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv;charset=utf-8;'}));
+  a.download=`出席_${sessionInfo?sessionInfo.className:'class'}_${date}.csv`; a.click();
+}
+
+// ─── 生徒：起動 ───
+async function bootStudent(params) {
+  const raw = params.get('d');
+  if (!raw) { showStudentError('URLが正しくありません'); return; }
+  let payload;
+  try { payload = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(raw))))); }
+  catch(e) { showStudentError('QRコードが読み取れませんでした'); return; }
+
+  const { cls, ts, dur } = payload;
+  document.getElementById('s-class-name').textContent = cls||'—';
+  document.getElementById('s-hdr-title').textContent  = cls||'出席登録';
+
+  // GASでセッション有効確認
+  let session;
+  try {
+    session = await gasGet({ action: 'getSession' });
+  } catch(e) {
+    showStudentError('サーバーに接続できません。Wi-Fiを確認してください。');
+    return;
+  }
+
+  const now = Date.now();
+  if (!session.active || ts !== session.sessionStart || now - ts >= dur) {
+    setStudentStatus(false,'受付時間が終了しました');
+    document.getElementById('s-closed-card').style.display='';
+    return;
+  }
+
+  setStudentStatus(true,'出席受付中');
+  document.getElementById('s-submit-card').style.display='';
+  document.getElementById('s-timer-wrap').style.display='';
+  window._sp = payload;
+  tickStudent(ts, dur);
+  setInterval(()=>tickStudent(ts,dur), 1000);
+}
+
+function tickStudent(ts, dur) {
+  const rem   = Math.max(0, dur-(Date.now()-ts));
+  const pct   = rem/dur*100;
+  const min   = Math.floor(rem/60000), sec = Math.floor(rem%60000/1000);
+  const color = rem>180000?'#639922':rem>60000?'#BA7517':'#A32D2D';
+  const fill  = document.getElementById('s-timer-fill');
+  if (fill) { fill.style.width=pct+'%'; fill.style.background=color; }
+  const lbl   = document.getElementById('s-timer-lbl');
+  if (lbl) lbl.textContent = `残り ${min}:${String(sec).padStart(2,'0')}`;
+  if (rem===0) {
+    setStudentStatus(false,'受付時間が終了しました');
+    document.getElementById('s-submit-card').style.display='none';
+    document.getElementById('s-closed-card').style.display='';
+  }
+}
+
+function setStudentStatus(open, text) {
+  const dot  = document.getElementById('s-dot');
+  const stxt = document.getElementById('s-status-text');
+  dot.className     = 'dot '+(open?'on':'off');
+  stxt.style.color  = open?'var(--green)':'var(--mu)';
+  stxt.textContent  = text;
+}
+
+function showStudentError(msg) {
+  setStudentStatus(false, msg);
+  document.getElementById('s-closed-card').style.display='';
+}
+
+// ─── 生徒：提出 ───
+async function submitAttendance() {
+  const payload = window._sp; if (!payload) return;
+  const sid   = document.getElementById('s-id').value.trim();
+  const sname = document.getElementById('s-name').value.trim();
+  const kw    = document.getElementById('s-kw').value.trim();
+  if (!sid)   { alert('学籍番号を入力してください'); return; }
+  if (!sname) { alert('氏名を入力してください');     return; }
+  if (!kw)    { alert('キーワードを入力してください'); return; }
+
+  const btn = document.getElementById('s-submit-btn');
+  btn.disabled=true; btn.textContent='送信中...';
+
+  try {
+    const res = await gasPost({
+      action: 'submit',
+      studentId: sid, name: sname, keyword: kw
+    });
+    if (res.ok) {
+      showResult(true,'出席を記録しました',`学籍番号：${sid}\n氏名：${sname}\n${payload.cls} の出席が確認されました。`);
+    } else {
+      showResult(false, res.error||'エラーが発生しました', '');
+      btn.disabled=false; btn.textContent='出席を提出';
+    }
+  } catch(e) {
+    showResult(false,'送信に失敗しました','ネットワークを確認して再試行してください。');
+    btn.disabled=false; btn.textContent='出席を提出';
+  }
+}
+
+function showResult(ok,title,sub) {
+  document.getElementById('s-form').style.display='none';
+  document.getElementById('s-result').style.display='';
+  document.getElementById('s-ri').className='result-icon '+(ok?'ok':'ng');
+  document.getElementById('s-ri').textContent=ok?'✓':'✕';
+  document.getElementById('s-rt').textContent=title;
+  document.getElementById('s-rs').textContent=sub;
+}
+
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// ─── 生徒用QRページ ───
+let qrPageTimer     = null;
+let qrPageRefresh   = null;
+let qrPageInstance  = null;
+const QR_REFRESH_MS = 2 * 60 * 1000; // 2分ごと
+
+async function bootStudentQR() {
+  document.getElementById('qr-date').textContent =
+    new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+  await refreshQRPage();
+  setInterval(refreshQRPage, 5000);
+}
+
+async function refreshQRPage() {
+  let session;
+  try {
+    session = await gasGet({ action: 'getSession' });
+  } catch(e) {
+    // エラーを画面に表示
+    document.getElementById('qr-loading-section').style.display = '';
+    document.getElementById('qr-loading-section').innerHTML =
+      '<div class="card" style="text-align:center;padding:24px">' +
+      '<div style="font-size:14px;color:var(--red)">GAS接続エラー: ' + e.message + '</div>' +
+      '<div style="font-size:12px;color:var(--mu);margin-top:8px">5秒後に再試行します</div>' +
+      '</div>';
+    return;
+  }
+
+  const now = Date.now();
+  const isOpen = session.active &&
+    (now - Number(session.sessionStart)) < Number(session.sessionDuration);
+
+  document.getElementById('qr-loading-section').style.display = 'none';
+
+  if (isOpen) {
+    document.getElementById('qr-class-name').textContent = session.className || '出席QRコード';
+    document.getElementById('qr-active-section').style.display = '';
+    document.getElementById('qr-closed-section').style.display = 'none';
+
+    // QR生成（まだ生成していないか、セッションが変わった場合）
+    if (!qrPageInstance || window._qrSessionStart !== session.sessionStart) {
+      window._qrSessionStart = session.sessionStart;
+      generateQRCode(session);
+      // 2分ごとに自動更新
+      clearInterval(qrPageRefresh);
+      qrPageRefresh = setInterval(() => generateQRCode(session), QR_REFRESH_MS);
+    }
+
+    // タイマー更新
+    clearInterval(qrPageTimer);
+    qrPageTimer = setInterval(() => tickQRTimer(session), 1000);
+    tickQRTimer(session);
+    updateQRRefreshLabel();
+    setInterval(updateQRRefreshLabel, 1000);
+
+  } else {
+    document.getElementById('qr-active-section').style.display = 'none';
+    document.getElementById('qr-closed-section').style.display = '';
+    clearInterval(qrPageTimer);
+    clearInterval(qrPageRefresh);
+    qrPageInstance = null;
+    window._qrSessionStart = null;
+  }
+}
+
+function generateQRCode(session) {
+  const box = document.getElementById('qr-code-box');
+  box.innerHTML = '';
+  const base = location.origin + location.pathname;
+  const payload = {
+    cls: session.className,
+    ts:  Number(session.sessionStart),
+    dur: Number(session.sessionDuration)
+  };
+  const url = base + '?m=s&d=' + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
+  if (typeof QRCode === 'undefined') {
+    setTimeout(() => generateQRCode(session), 500); return;
+  }
+  try {
+    qrPageInstance = new QRCode(box, {
+      text: url, width: 240, height: 240,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    window._qrLastGenerated = Date.now();
+  } catch(e) {
+    box.innerHTML = '<div style="color:red;font-size:12px;padding:12px">QR生成エラー</div>';
+  }
+}
+
+function tickQRTimer(session) {
+  const rem = Math.max(0, Number(session.sessionDuration) - (Date.now() - Number(session.sessionStart)));
+  const pct = rem / Number(session.sessionDuration) * 100;
+  const min = Math.floor(rem / 60000), sec = Math.floor(rem % 60000 / 1000);
+  const color = rem > 180000 ? '#639922' : rem > 60000 ? '#BA7517' : '#A32D2D';
+  const fill = document.getElementById('qr-timer-fill');
+  const lbl  = document.getElementById('qr-timer-lbl');
+  if (fill) { fill.style.width = pct + '%'; fill.style.background = color; }
+  if (lbl)  lbl.textContent = `残り ${min}:${String(sec).padStart(2,'0')}`;
+}
+
+function updateQRRefreshLabel() {
+  const lbl = document.getElementById('qr-refresh-lbl');
+  if (!lbl || !window._qrLastGenerated) return;
+  const rem = Math.max(0, QR_REFRESH_MS - (Date.now() - window._qrLastGenerated));
+  const min = Math.floor(rem / 60000), sec = Math.floor(rem % 60000 / 1000);
+  lbl.textContent = `次の更新まで ${min}:${String(sec).padStart(2,'0')}`;
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+<!-- ===== STUDENT QR PAGE ===== -->
+<div class="page" id="page-qr">
+  <div class="hdr">
+    <div>
+      <div class="hdr-t" id="qr-class-name">出席QRコード</div>
+      <div class="hdr-s" id="qr-date"></div>
+    </div>
+    <span class="role t">生徒用</span>
+  </div>
+  <div class="main" style="align-items:center;justify-content:center;">
+
+    <!-- セッション受付中 -->
+    <div id="qr-active-section" style="display:none;width:100%">
+      <div class="card" style="text-align:center;padding:24px 18px">
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px">
+          <span class="dot on"></span>
+          <span style="font-size:14px;font-weight:500;color:var(--green)">出席受付中</span>
+        </div>
+        <div class="timer-bg"><div class="timer-fill" id="qr-timer-fill" style="width:100%;background:#639922"></div></div>
+        <div class="timer-lbl" id="qr-timer-lbl" style="margin-bottom:20px"></div>
+        <div style="font-size:13px;color:var(--mu);margin-bottom:12px">カメラでQRコードを読み取ってください</div>
+        <div style="display:inline-block;background:#fff;padding:16px;border-radius:var(--rs);border:0.5px solid var(--bd)">
+          <div id="qr-code-box"></div>
+        </div>
+        <div style="font-size:12px;color:var(--hi);margin-top:12px" id="qr-refresh-lbl">次の更新まで 5:00</div>
+      </div>
+    </div>
+
+    <!-- セッション終了 -->
+    <div id="qr-closed-section" style="display:none;width:100%">
+      <div class="card" style="text-align:center;padding:40px 20px">
+        <div style="font-size:48px;margin-bottom:16px">🔒</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px">受付時間外です</div>
+        <div style="font-size:14px;color:var(--mu)">先生が授業を開始すると<br>QRコードが表示されます</div>
+      </div>
+    </div>
+
+    <!-- ローディング -->
+    <div id="qr-loading-section" style="width:100%">
+      <div class="card" style="text-align:center;padding:40px 20px">
+        <div style="font-size:14px;color:var(--mu)">読み込み中...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
